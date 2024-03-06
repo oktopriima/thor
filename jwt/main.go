@@ -29,7 +29,7 @@ func (a *accessToken) Validate(token string) bool {
 
 type AccessToken interface {
 	GenerateToken(request Params) (TokenResponse, error)
-	GenerateFromRefresh(token, refreshToken string, renew bool) (TokenResponse, error)
+	GenerateFromRefreshToken(token, refreshToken string, renew bool) (TokenResponse, error)
 	Validate(token string) bool
 }
 
@@ -74,8 +74,56 @@ func (a *accessToken) GenerateToken(request Params) (TokenResponse, error) {
 	return CreateResponse(tokenString, string(refreshToken), string(a.SignatureKey)), nil
 }
 
-func (a *accessToken) GenerateFromRefresh(oldToken, refreshToken string, renew bool) (TokenResponse, error) {
-	return CreateResponse("", refreshToken, string(a.SignatureKey)), nil
+func (a *accessToken) GenerateFromRefreshToken(oldToken, refreshToken string, renew bool) (TokenResponse, error) {
+	// extracted old token
+	e, err := Extract(oldToken, string(a.SignatureKey))
+	if err != nil {
+		return nil, err
+	}
+
+	// validate old token
+	if !(e.Iss == a.Issuer && e.Aud == a.Audience) {
+		return nil, fmt.Errorf("token invalid")
+	}
+
+	// validate refresh token
+	cre := time.Unix(0, e.Cre).Format(TimeTinyFormat)
+	predicted := fmt.Sprintf("%s-%s-%s", e.Id, string(a.SignatureKey), cre)
+
+	err = bcrypt.CompareHashAndPassword([]byte(refreshToken), []byte(predicted))
+	if err != nil {
+		return nil, err
+	}
+
+	// create new token
+	t := jwt.New(jwt.SigningMethodHS256)
+	claims := t.Claims.(jwt.MapClaims)
+
+	now := time.Now()
+	expiredAt := now.Add(time.Second * time.Duration(a.Duration))
+
+	if renew {
+		rr, err := a.generateRefreshToken(now, e.Id)
+		if err != nil {
+			return nil, err
+		}
+
+		refreshToken = string(rr)
+	}
+
+	claims["_id"] = e.Id
+	claims["obj"] = e.Obj
+	claims["exp"] = expiredAt.UnixNano()
+	claims["cre"] = now.UnixNano()
+	claims["aud"] = a.Audience
+	claims["iss"] = a.Issuer
+
+	tokenString, err := t.SignedString(a.SignatureKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return CreateResponse(tokenString, refreshToken, string(a.SignatureKey)), nil
 }
 
 func (a *accessToken) generateRefreshToken(now time.Time, id string) ([]byte, error) {

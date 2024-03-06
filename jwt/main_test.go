@@ -133,3 +133,24 @@ func (s *S) TestExtractedWithWrongPayload(c *C) {
 	v := t.Validate(localParams.Token)
 	c.Assert(v, Equals, false)
 }
+
+func (s *S) TestGenerateRefreshToken(c *C) {
+	t := jwt.NewAccessToken(request, 3600)
+
+	token, err := t.GenerateToken(params)
+	c.Assert(err, IsNil)
+	c.Assert(token, NotNil)
+	c.Assert(token.GetStringToken(), FitsTypeOf, string(""))
+	c.Assert(token.GetStringRefreshToken(), FitsTypeOf, string(""))
+
+	timecop.Travel(time.Now().Add(3 * time.Hour))
+	v := t.Validate(token.GetStringToken())
+	c.Assert(v, Equals, false)
+	timecop.Return()
+
+	newToken, err := t.GenerateFromRefreshToken(token.GetStringToken(), token.GetStringRefreshToken(), true)
+	c.Assert(err, IsNil)
+	c.Assert(newToken, NotNil)
+	c.Assert(newToken.GetStringToken(), FitsTypeOf, string(""))
+	c.Assert(newToken.GetStringRefreshToken(), Not(Equals), token.GetStringRefreshToken())
+}
