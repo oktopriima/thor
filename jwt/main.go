@@ -18,6 +18,10 @@ type accessToken struct {
 	Issuer       string
 }
 
+func (a *accessToken) GetSignatureKey() string {
+	return string(a.SignatureKey)
+}
+
 func (a *accessToken) Validate(token string) bool {
 	e, err := Extract(token, string(a.SignatureKey))
 	if err != nil {
@@ -31,6 +35,7 @@ type AccessToken interface {
 	GenerateToken(request Params) (TokenResponse, error)
 	GenerateFromRefreshToken(token, refreshToken string, renew bool) (TokenResponse, error)
 	Validate(token string) bool
+	GetSignatureKey() string
 }
 
 func NewAccessToken(req Request, duration ...int64) AccessToken {
