@@ -16,6 +16,7 @@ type accessToken struct {
 	Duration     int64
 	Audience     string
 	Issuer       string
+	ShortSign    string
 }
 
 func (a *accessToken) GetSignatureKey() string {
@@ -44,11 +45,16 @@ func NewAccessToken(req Request, duration ...int64) AccessToken {
 		dur = duration[0]
 	}
 
+	shortSign := req.SignatureKey
+	if len(req.SignatureKey) >= 15 {
+		shortSign = req.SignatureKey[:15]
+	}
 	return &accessToken{
 		SignatureKey: []byte(req.SignatureKey),
 		Duration:     dur,
 		Issuer:       req.Issuer,
 		Audience:     req.Audience,
+		ShortSign:    shortSign,
 	}
 }
 
@@ -93,7 +99,7 @@ func (a *accessToken) GenerateFromRefreshToken(oldToken, refreshToken string, re
 
 	// validate refresh token
 	cre := time.Unix(0, e.Cre).Format(TimeTinyFormat)
-	predicted := fmt.Sprintf("%s-%s-%s", e.Id, string(a.SignatureKey), cre)
+	predicted := fmt.Sprintf("%s-%s-%s", e.Id, a.ShortSign, cre)
 
 	err = bcrypt.CompareHashAndPassword([]byte(refreshToken), []byte(predicted))
 	if err != nil {
@@ -132,7 +138,7 @@ func (a *accessToken) GenerateFromRefreshToken(oldToken, refreshToken string, re
 }
 
 func (a *accessToken) generateRefreshToken(now time.Time, id string) ([]byte, error) {
-	hashed := fmt.Sprintf("%s-%s-%s", id, string(a.SignatureKey), now.Format(TimeTinyFormat))
+	hashed := fmt.Sprintf("%s-%s-%s", id, a.ShortSign, now.Format(TimeTinyFormat))
 	refreshToken, err := bcrypt.GenerateFromPassword([]byte(hashed), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, err

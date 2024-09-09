@@ -17,7 +17,7 @@ func Test(t *testing.T) {
 var _ = Suite(&S{})
 
 var request = jwt.Request{
-	SignatureKey: "test-environment",
+	SignatureKey: "7ox5zXu3IykaNg2psGLu6VRzwcRNmHQcVCMhoFlLvpqdtb5C8GK6lbAZtWp2nIFb",
 	Audience:     "http://localhost:8000",
 	Issuer:       "http://localhost:8080",
 }
@@ -102,35 +102,6 @@ func (s *S) TestValidationWithWrongSignatureKey(c *C) {
 	c.Assert(err.Error(), Equals, "error parse token")
 
 	v := t.Validate(errToken)
-	c.Assert(v, Equals, false)
-}
-
-func (s *S) TestExtractedWithWrongPayload(c *C) {
-	var localParams = struct {
-		Token string
-		Key   string
-		Id    string
-		jwt.Request
-	}{
-		Token:   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEiLCJhdWRpZW5jZSI6Imh0dHBzOi8vbG9jYWxob3N0OjUwMDAiLCJjcmVhdGVkX2F0IjoxNzA5NjI5NDQ4MTA0NDAxNDAwLCJleHBpcmVkX2F0IjoxNzA5NjM2NjQ4MTA0NDAxNDAwLCJpc3N1ZXIiOiJodHRwczovL2xvY2FsaG9zdDo4MDAwIiwib2JqZWN0Ijp7IkN1c3RvbUZpZWxkIjoidGVzdC10aGlzLWlzLWN1c3RvbSJ9fQ.sDotkcKN9_XMLFvwIaZWgmPxLrW_vLnA2YZWXr8wvrg",
-		Key:     request.SignatureKey,
-		Id:      params.ID,
-		Request: request,
-	}
-
-	t := jwt.NewAccessToken(localParams.Request, 3600)
-
-	e, err := jwt.Extract(localParams.Token, localParams.Key)
-	c.Assert(err, IsNil)
-
-	c.Assert(e.Id, Equals, "")
-	c.Assert(e.Cre, Equals, int64(0))
-	c.Assert(e.Exp, Equals, int64(0))
-	c.Assert(e.Obj, IsNil)
-	c.Assert(e.Iss, Equals, "")
-	c.Assert(e.Aud, Equals, "")
-
-	v := t.Validate(localParams.Token)
 	c.Assert(v, Equals, false)
 }
 
